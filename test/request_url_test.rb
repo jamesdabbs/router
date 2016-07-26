@@ -7,7 +7,15 @@ describe 'SCRIPT_NAME' do
   before do
     @container = Hanami::Router.new do
       @some_test_router = Hanami::Router.new(prefix: '/admin') {
-        get '/foo', to: ->(env) { [200, {}, [::Rack::Request.new(env).url]] }, as: :foo
+        get '/foo', to: ->(env) {
+          request = ::Rack::Request.new env
+          body = [
+            request.url,
+            request.env["PATH_INFO"],
+            request.env["SCRIPT_NAME"]
+          ].join("\n")
+          [200, {}, body]
+        }, as: :foo
       }
       mount @some_test_router, at: '/admin'
     end
@@ -40,11 +48,11 @@ describe 'SCRIPT_NAME' do
     get script_name
 
     response.status.must_equal 200
-    request.env['SCRIPT_NAME'].must_equal script_name
-    request.env['SCRIPT_NAME'].must_be_kind_of(String)
 
-    request.env['PATH_INFO'].must_equal ''
-    request.env['PATH_INFO'].must_be_kind_of(String)
-    response.body.must_equal "http://example.org#{ script_name }"
+    url, path_info, name = response.body.split "\n"
+
+    name.must_equal script_name
+    path_info.must_equal ''
+    url.must_equal "http://example.org#{ script_name }"
   end
 end
